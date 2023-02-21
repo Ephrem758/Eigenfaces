@@ -1,0 +1,60 @@
+import numpy as np
+from PIL import Image
+import os
+
+def read_images(path, sz=None):
+    c = 0
+    X,y = [], []
+    for dirname, dirnames, filenames in os.walk(path):
+        for subdirname in dirnames:
+            subject_path = os.path.join(dirname, subdirname)
+            for filename in os.listdir(subject_path):
+                try:
+                    im = Image.open(os.path.join(subject_path, filename))
+                    im = im.convert("L")
+                    if sz is not None:
+                        im = im.resize(sz, Image.ANTIALIAS)
+                    X.append(np.asarray(im, dtype=np.uint8))
+                    y.append(c)
+                except IOError:
+                    pass
+            c += 1
+    return [X,y]
+
+def eigenfaces(X, y, num_components=0):
+    [n,d] = X.shape
+    if (num_components <= 0) or (num_components>n):
+        num_components = n
+    mean_X = X.mean(axis=0)
+    X = X - mean_X
+    if n > d:
+        C = np.dot(X.T,X)
+        [eigenvalues,eigenvectors] = np.linalg.eigh(C)
+    else:
+        C = np.dot(X,X.T)
+        [eigenvalues,eigenvectors] = np.linalg.eigh(C)
+        eigenvectors = np.dot(X.T,eigenvectors)
+        for i in range(n):
+            eigenvectors[:,i] = eigenvectors[:,i]/np.linalg.norm(eigenvectors[:,i])
+    idx = np.argsort(-eigenvalues)
+    eigenvalues = eigenvalues[idx]
+    eigenvectors = eigenvectors[:,idx]
+    eigenvalues = np.array(eigenvalues[0:num_components].real, dtype=np.float32, copy=True)
+    eigenvectors = np.array(eigenvectors[:,0:num_components].real, dtype=np.float32, copy=True)
+    projected_X = np.dot(X,eigenvectors)
+    return [projected_X, mean_X, eigenvectors, eigenvalues]
+
+def main():
+    # Load the face images
+    [X,y] = read_images("/images")
+
+    # Perform Eigenface analysis
+    [pca_projected_X, mean_X, eigenvectors, eigenvalues] = eigenfaces(np.asarray(X), np.asarray(y))
+
+    # Visualize the results
+    import matplotlib.pyplot as plt
+    fig, axes = plt.subplots(3, 8, figsize=(10, 5))
+    for i, ax in enumerate(axes.flat):
+        ax.imshow(eigenvectors[:, i]).reshape
+
+
